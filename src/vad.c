@@ -4,10 +4,12 @@
 #include "vad.h"
 #include "pav_analysis.h"
 
-const float FRAME_TIME = 120; /* in ms. */
-
-const float MARGE_P = 6.6;
-const unsigned short N_FRAMES = 24;
+/*
+ * const float FRAME_TIME = 120;  // in ms
+ *
+ * const float MARGE_P = 6.6;
+ * const unsigned short N_FRAMES = 24;
+*/
 
 /* 
  * As the output state is only ST_VOICE, ST_SILENCE, or ST_UNDEF,
@@ -36,9 +38,9 @@ Features compute_features(const float *x, int N) {
    * Ouput: computed features
    */
   Features feat;
-  feat.zcr = compute_zcr(x, N, 1e3 / FRAME_TIME);
+  //feat.zcr = compute_zcr(x, N, 1e3 / FRAME_TIME);
   feat.p = compute_power(x, N);
-  feat.am = compute_am(x, N);
+  //feat.am = compute_am(x, N);
   return feat;
 }
 
@@ -46,11 +48,11 @@ Features compute_features(const float *x, int N) {
  * Init the values of vad_data
  */
 
-VAD_DATA * vad_open(float rate) {
+VAD_DATA * vad_open(float rate, float frame_time) {
   VAD_DATA *vad_data = malloc(sizeof(VAD_DATA));
   vad_data->state = ST_INIT;
   vad_data->sampling_rate = rate;
-  vad_data->frame_length = rate * FRAME_TIME * 1e-3;
+  vad_data->frame_length = rate * frame_time * 1e-3;
   return vad_data;
 }
 
@@ -75,7 +77,7 @@ unsigned int vad_frame_size(VAD_DATA *vad_data) {
  * using a Finite State Automata
  */
 
-VAD_STATE vad(VAD_DATA *vad_data, float *x, float llindar, unsigned short *count) {
+VAD_STATE vad(VAD_DATA *vad_data, float *x, float llindar, float marge_p, unsigned short n_frames, unsigned short *count) {
 
   Features f = compute_features(x, vad_data->frame_length);
   vad_data->last_feature = f.p; /* save feature, in case you want to show */
@@ -94,11 +96,11 @@ VAD_STATE vad(VAD_DATA *vad_data, float *x, float llindar, unsigned short *count
     break;
 
   default:  // either ST_VOICE or ST_UNDEF
-    if (f.p > vad_data->potencia_soroll + llindar + MARGE_P) {
+    if (f.p > vad_data->potencia_soroll + llindar + marge_p) {
       vad_data->state = ST_VOICE;
       *count = 0;
     } else if (f.p > vad_data->potencia_soroll + llindar) {
-      if (*count == N_FRAMES) {
+      if (*count == n_frames) {
         vad_data->state = ST_VOICE;
         *count = 0;
         break;
