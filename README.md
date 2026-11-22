@@ -150,7 +150,7 @@ Ejercicios
 ### Desarrollo del detector de actividad vocal
 
 - Inserte una gráfica en la que se vea con claridad la señal temporal, el etiquetado manual y la detección automática conseguida para el fichero grabado al efecto. 
-
+![Comparación entre etiquetado manual y detección automática](CapturaCCAV_P2.jpeg)
 
   Las discrepancias principales se observan en las fronteras de las palabras. El etiquetado manual es muy estricto respecto al inicio y fin visible de la onda. En cambio, nuestro autómata presenta un efecto *hangover* (inercia): tarda unas cuantas tramas extra en caer al estado de silencio debido a las reverberaciones de la sala y a las colas de energía. Asimismo, hemos notado pequeñas discrepancias en fonemas fricativos muy suaves de final de frase, cuya energía no logra superar el umbral configurado y el sistema los corta antes de tiempo.
 
