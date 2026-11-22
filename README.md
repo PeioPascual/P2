@@ -132,11 +132,10 @@ Ejercicios
 
 ### Etiquetado manual de los segmentos de voz y silencio
 
-- Inserte, a continuación, una captura de `wavesurfer` en la que se vea con claridad la señal temporal, el contorno de potencia y la tasa de cruces por cero, junto con el etiquetado manual de los segmentos.
+
 
   ![Captura wavesurfer PAV_P1](Captura%20de%20pantalla%202026-10-12%20230820.png)
 
-- A la vista de la gráfica, indique qué valores considera adecuados para las magnitudes siguientes:
 
   * **Incremento del nivel potencia en dB, respecto al nivel correspondiente al silencio inicial, para estar seguros de que un segmento de señal se corresponde con voz.**
     A partir de la observación empírica de la señal, consideramos que un primer incremento de unos **2.6 dB** respecto al ruido de fondo nos indica posible presencia de voz. Sin embargo, para estar completamente seguros (umbral de confirmación) y no confundirlo con ruido ambiente o respiraciones, el incremento total debería rondar los **9.2 dB**. En nuestro código hemos implementado esto separando el incremento en un `llindar` de decisión de 2.6 y un `marge_p` (histéresis) de 6.6.
