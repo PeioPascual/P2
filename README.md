@@ -132,34 +132,36 @@ Ejercicios
 
 ### Etiquetado manual de los segmentos de voz y silencio
 
-- A continuación, se adjunta la captura de `wavesurfer` donde se aprecia la señal temporal (forma de onda) junto con su etiquetado manual de los segmentos de voz (V) y silencio (S):
+- Inserte, a continuación, una captura de `wavesurfer` en la que se vea con claridad la señal temporal, el contorno de potencia y la tasa de cruces por cero, junto con el etiquetado manual de los segmentos.
 
-  ![Captura wavesurfer PAV_P1](Captura de pantalla 2026-10-12 230820.png)
+  ![Captura wavesurfer PAV_P1](Captura%20de%20pantalla%202026-10-12%20230820.png)
 
-- A la vista de la gráfica y de las pruebas realizadas, se extraen las siguientes conclusiones para los parámetros del detector:
+- A la vista de la gráfica, indique qué valores considera adecuados para las magnitudes siguientes:
 
-  * **Incremento del nivel de potencia (dB):** Observamos que el ruido de fondo tiene una potencia muy baja y estable. Un incremento de aproximadamente **2.6 dB** (`llindar`) respecto al ruido inicial es un buen indicador de posible presencia de voz. Para evitar falsos positivos con ruidos impulsivos, consideramos que si el incremento supera un margen extra de **6.6 dB** (`marge_p`), podemos estar totalmente seguros de que se trata de voz.
-  * **Duración mínima razonable:** Las pausas cortas (como las producidas por consonantes oclusivas) no deben considerarse silencios reales. Por ello, es prudente exigir que una señal de baja potencia se mantenga durante varias tramas (hemos parametrizado este valor a **24 tramas**) antes de consolidar el cambio de estado, o viceversa, para evitar interrupciones o arranques en falso.
-  * **Evolución de la tasa de cruces por cero (ZCR):** Durante los silencios, la ZCR fluctúa de manera aleatoria debido al ruido de fondo. En los segmentos de voz, la ZCR se mantiene baja en vocales (sonoras) y aumenta drásticamente en las consonantes fricativas sordas (como la /s/ o la /f/). Integrar la ZCR junto a la potencia ayudaría a no confundir estas fricativas de baja energía con silencios.[cite: 1, 42, 47]
+  * **Incremento del nivel potencia en dB, respecto al nivel correspondiente al silencio inicial, para estar seguros de que un segmento de señal se corresponde con voz.**
+    A partir de la observación empírica de la señal, consideramos que un primer incremento de unos **2.6 dB** respecto al ruido de fondo nos indica posible presencia de voz. Sin embargo, para estar completamente seguros (umbral de confirmación) y no confundirlo con ruido ambiente o respiraciones, el incremento total debería rondar los **9.2 dB**. En nuestro código hemos implementado esto separando el incremento en un `llindar` de decisión de 2.6 y un `marge_p` (histéresis) de 6.6.
+
+  * **Duración mínima razonable de los segmentos de voz y silencio.**
+    La duración mínima razonable se sitúa en torno a los **200 - 300 ms** (lo que equivale aproximadamente a 24 tramas en nuestra configuración). Este tiempo es suficiente para evitar que ruidos impulsivos cortos (golpes al micrófono, chasquidos) se consideren arranques de voz, y a su vez evita que las breves pausas de las consonantes oclusivas se cataloguen erróneamente como cambios definitivos a estado de silencio.
+
+  * **¿Es capaz de sacar alguna conclusión a partir de la evolución de la tasa de cruces por cero?**
+    Sí. Durante los segmentos de silencio, la tasa de cruces por cero (ZCR) fluctúa de manera muy caótica debido a la aleatoriedad del ruido de fondo. En cambio, durante el habla, la ZCR nos permite distinguir fonemas: toma valores bajos y estables en los fonemas sonoros (vocales) y valores altísimos en los fonemas fricativos sordos (como la /s/). Esto es muy útil porque las fricativas tienen tan poca energía que el detector de potencia podría ignorarlas, pero la ZCR nos ayuda a retenerlas como voz.
 
 
 ### Desarrollo del detector de actividad vocal
 
-- Se ha implementado un detector de actividad vocal (VAD) en tiempo real basado en un **Autómata de Estados Finitos (FSA)** con decisión diferida e histéresis. La lógica programada funciona de la siguiente manera:
-  1. **Inicialización (`ST_INIT`):** Se asume que el audio comienza en silencio y se estima la potencia de referencia del ruido (`potencia_soroll`).
-  2. **Transiciones desde Silencio/Indefinido:** 
-     - Si la potencia supera el umbral máximo (`potencia_soroll + llindar + marge_p`), se pasa directamente a estado de voz (`ST_VOICE`).
-     - Si supera el umbral mínimo pero no el máximo, se entra en un estado de espera (`ST_UNDEF`). Si este nivel se mantiene durante un número predeterminado de tramas (`n_frames`), se consolida la transición a voz.
-  3. **Transiciones desde Voz:** Si la potencia cae por debajo del umbral mínimo, el autómata vuelve automáticamente a estado de silencio (`ST_SILENCE`).
-- **Discrepancias con el etiquetado manual:** Las mayores diferencias entre el etiquetado manual y el automático suelen concentrarse en las fronteras de las palabras (efecto *hangover*), ya que el autómata puede tardar unas tramas en confirmar la caída al silencio por las reverberaciones del habla. También puede haber discrepancias en fonemas aislados de muy baja energía donde la potencia no logra superar el umbral programado.
-- **Evaluación sobre la base de datos `db.v4`:** Tras optimizar los parámetros del algoritmo, los resultados obtenidos con el script `vad_evaluation.pl` sobre el conjunto de test muestran un rendimiento excelente, alcanzando casi un 95% de puntuación-F TOTAL:
+- Inserte una gráfica en la que se vea con claridad la señal temporal, el etiquetado manual y la detección automática conseguida para el fichero grabado al efecto. 
 
-```text
-**************** Summary ****************
-Recall V:615.81/625.02 98.53%   Precision V:615.81/698.39 88.18%   F-score V (2)  : 96.27%
-Recall S:317.88/400.47 79.38%   Precision S:317.88/327.09 97.19%   F-score S (1/2): 93.01%
-===> TOTAL: 94.625%
-```[cite: 1, 42]
+
+  Las discrepancias principales se observan en las fronteras de las palabras. El etiquetado manual es muy estricto respecto al inicio y fin visible de la onda. En cambio, nuestro autómata presenta un efecto *hangover* (inercia): tarda unas cuantas tramas extra en caer al estado de silencio debido a las reverberaciones de la sala y a las colas de energía. Asimismo, hemos notado pequeñas discrepancias en fonemas fricativos muy suaves de final de frase, cuya energía no logra superar el umbral configurado y el sistema los corta antes de tiempo.
+
+
+
+  ```text
+  **************** Summary ****************
+  Recall V:615.81/625.02 98.53%   Precision V:615.81/698.39 88.18%   F-score V (2)  : 96.27%
+  Recall S:317.88/400.47 79.38%   Precision S:317.88/327.09 97.19%   F-score S (1/2): 93.01%
+  ===> TOTAL: 94.625%
 
 
 ### Trabajos de ampliación
@@ -168,7 +170,7 @@ Se han implementado con éxito las dos ampliaciones propuestas en la práctica:
 
 #### 1. Cancelación del ruido en los segmentos de silencio
 
-Se ha dotado al programa principal (`main_vad.c`) de la capacidad para limpiar el ruido de los audios. Cuando el usuario especifica un fichero `.wav` de salida mediante la opción `-w`, el programa escribe la señal original. Sin embargo, cada vez que el autómata confirma un segmento de silencio definitivo (`ST_SILENCE`), el programa retrocede dinámicamente en el puntero de escritura del fichero de audio (usando `sf_seek`) y sobrescribe la trama con ceros (`buffer_zeros`). Esto produce un archivo final donde los silencios son un cero absoluto, pero la voz se mantiene inalterada.[cite: 1, 43]
+Se ha dotado al programa principal (`main_vad.c`) de la capacidad para limpiar el ruido de los audios. Cuando el usuario especifica un fichero `.wav` de salida mediante la opción `-w`, el programa escribe la señal original. Sin embargo, cada vez que el autómata confirma un segmento de silencio definitivo (`ST_SILENCE`), el programa retrocede dinámicamente en el puntero de escritura del fichero de audio (usando `sf_seek`) y sobrescribe la trama con ceros (`buffer_zeros`). Esto produce un archivo final donde los silencios son un cero absoluto, pero la voz se mantiene inalterada.
 
 *(Nota: En la carpeta del proyecto se pueden generar y visualizar estos audios silenciados).*
 
@@ -197,11 +199,11 @@ Options:
    -v, --verbose  Show debug information
    -h, --help     Show this screen
    --version      Show the version of the project
-```[cite: 1, 44]
+```
 
 
 ### Contribuciones adicionales y/o comentarios acerca de la práctica
 
 Como aportación complementaria, hemos desarrollado un script en *bash* llamado `cardem-li.sh` para automatizar el cálculo de los mejores umbrales. Este script realiza un proceso de iteración sistemática (*grid search* o barrido), ejecutando la base de datos `db.v4` con valores de `llindar` que van desde 2.0 hasta 3.0 (en saltos de 0.05). A continuación, filtra estadísticamente las ejecuciones y las ordena por su puntuación TOTAL.
 
-Esto nos ha permitido encontrar de manera rápida, automatizada y precisa la mejor combinación posible para el umbral de decisión, obteniendo así el `94.625%` final presentado en el apartado anterior.[cite: 1, 45, 46]
+Esto nos ha permitido encontrar de manera rápida, automatizada y precisa la mejor combinación posible para el umbral de decisión, obteniendo así el `94.625%` final presentado en el apartado anterior.
