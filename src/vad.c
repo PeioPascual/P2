@@ -43,7 +43,9 @@ Features compute_features(const float *x, int N) {
    * For the moment, compute random value between 0 and 1 
    */
   Features feat;
+  feat.zcr = compute_zcr(x, N, 1e3 / FRAME_TIME);
   feat.p = compute_power(x, N);
+  feat.am = compute_am(x, N);
   return feat;
 }
 
@@ -63,10 +65,10 @@ VAD_STATE vad_close(VAD_DATA *vad_data) {
   /* 
    * TODO: decide what to do with the last undecided frames
    */
-  VAD_STATE state = vad_data->state;
+  // VAD_STATE state = vad_data->state;
 
   free(vad_data);
-  return state;
+  return ST_SILENCE;
 }
 
 unsigned int vad_frame_size(VAD_DATA *vad_data) {
@@ -78,7 +80,7 @@ unsigned int vad_frame_size(VAD_DATA *vad_data) {
  * using a Finite State Automata
  */
 
-VAD_STATE vad(VAD_DATA *vad_data, float *x, float llindar) {
+VAD_STATE vad(VAD_DATA *vad_data, float *x, float llindar, unsigned short *count) {
 
   /* 
    * TODO: You can change this, using your own features,
@@ -94,25 +96,35 @@ VAD_STATE vad(VAD_DATA *vad_data, float *x, float llindar) {
     vad_data->potencia_soroll = f.p;
     break;
 
-  case ST_SILENCE:
-    if (f.p > vad_data->potencia_soroll + llindar)
-      vad_data->state = ST_VOICE;
-    break;
-
   case ST_VOICE:
-    if (f.p < vad_data->potencia_soroll + llindar)
+    if (f.p < vad_data->potencia_soroll + llindar) {
       vad_data->state = ST_SILENCE;
+      *count = 0;
+    }
     break;
 
-  case ST_UNDEF:
+  default:  // either ST_VOICE or ST_UNDEF
+    if (f.p > vad_data->potencia_soroll + llindar + 6.6) {
+      vad_data->state = ST_VOICE;
+      *count = 0;
+    } else if (f.p > vad_data->potencia_soroll + llindar && f.zcr < 5) {
+      if (*count == 24  && f.zcr < 5) {
+        vad_data->state = ST_VOICE;
+        *count = 0;
+        break;
+      }
+      vad_data->state = ST_UNDEF;
+      (*count)++;
+    }
     break;
+
   }
 
   if (vad_data->state == ST_SILENCE ||
       vad_data->state == ST_VOICE)
     return vad_data->state;
   else
-    return ST_UNDEF;
+    return ST_SILENCE;
 }
 
 void vad_show_state(const VAD_DATA *vad_data, FILE *out) {
